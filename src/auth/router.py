@@ -5,8 +5,9 @@ from src.database.database import get_db
 from src.auth.service import UserService
 # from sqlmodel.ext.asyncio.session import AsyncSession   
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.auth.utils import generate_access_token  ,verify_password
-from datetime import timedelta
+from src.auth.utils import generate_access_token  ,verify_password 
+from src.auth.dependencies import RefreshTokenBearer 
+from datetime import timedelta , datetime
 from fastapi.responses import JSONResponse
 auth_router  = APIRouter()
 user_service = UserService()
@@ -61,3 +62,20 @@ async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
             raise HTTPException(status.HTTP_403_FORBIDDEN , detail  = "Password not correct")
     else:
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User not Found")
+    
+@auth_router.post("/refresh-token")
+async def get_new_access_token(
+    token_details: dict = Depends(RefreshTokenBearer())
+):
+
+    user_data = token_details["user"]
+
+    new_access_token = generate_access_token(
+        user_data=user_data
+    )
+
+    return JSONResponse(
+        content={
+            "access_token": new_access_token
+        }
+    )

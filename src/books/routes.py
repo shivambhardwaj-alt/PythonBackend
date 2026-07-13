@@ -6,14 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.database import get_db
 from src.books.schema import Book ,  BookCreateModel, BookUpdateModel
 from .service import BookService
-from src.auth.dependencies import AccessTokenBearer
+from src.auth.dependencies import RefreshTokenBearer
 
 bookRouter = APIRouter()
 
 book_service = BookService()
 
 
-access_token_bearer = AccessTokenBearer()
+access_token_bearer = RefreshTokenBearer()
 
 @bookRouter.get("/")
 async def get_all_books(db: AsyncSession = Depends(get_db) , user_details = Depends(access_token_bearer)):

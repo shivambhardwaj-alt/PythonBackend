@@ -13,7 +13,6 @@ def verify_password(password : str , hash : str):
 
 
 def generate_access_token(user_data : dict , expiry : timedelta = timedelta(minutes=15) , refresh : bool  = False):
-    
     payload = {}
     payload["user"] = user_data
     payload['exp'] = datetime.now() + expiry
