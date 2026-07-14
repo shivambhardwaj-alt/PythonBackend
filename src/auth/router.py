@@ -31,6 +31,7 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
     return result
     
     
+    # I didn't add more routes here or something left too
 @auth_router.post('/login')
 async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     user  =  await  user_service.get_user(data.email ,db)
