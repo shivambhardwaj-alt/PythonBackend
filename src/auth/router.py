@@ -6,9 +6,10 @@ from src.auth.service import UserService
 # from sqlmodel.ext.asyncio.session import AsyncSession   
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.utils import generate_access_token  ,verify_password 
-from src.auth.dependencies import RefreshTokenBearer 
+from src.auth.dependencies import RefreshTokenBearer  , AccessTokenBearer
 from datetime import timedelta , datetime
 from fastapi.responses import JSONResponse
+from src.database.redis import add_jti_to_blocklist 
 auth_router  = APIRouter()
 user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
@@ -80,3 +81,11 @@ async def get_new_access_token(
             "access_token": new_access_token
         }
     )
+    
+    
+@auth_router.post("logout")
+async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
+    jti = token_details['jti']
+    await add_jti_to_blocklist(jti)
+    
+    return JSONResponse(content="Logout successfully" , status_code= status.HTTP_200_OK)
