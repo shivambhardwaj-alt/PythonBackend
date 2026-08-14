@@ -13,7 +13,6 @@ async def life_span(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
     yield
-
     print("Server has been stopped")
 version = "v1"
 app = FastAPI(

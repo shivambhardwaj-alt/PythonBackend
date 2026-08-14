@@ -1,6 +1,6 @@
 from fastapi import APIRouter , Depends , status ,HTTPException
 
-from src.auth.schema import UserCreateModel  , UserLogin
+from src.auth.schema import UserCreateModel , UserLogin
 from src.database.database import get_db
 from src.auth.service import UserService
 # from sqlmodel.ext.asyncio.session import AsyncSession   
@@ -22,7 +22,6 @@ async def create_user_account(data : UserCreateModel , db : AsyncSession =  Depe
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User with email already exists")
     new_user =  await user_service.create_user(data , db)
     return new_user
-
 
 @auth_router.get("/get-user")
 async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
@@ -85,7 +84,19 @@ async def get_new_access_token(
     
 @auth_router.post("logout")
 async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
+    print(token_details)
     jti = token_details['jti']
     await add_jti_to_blocklist(jti)
-    
     return JSONResponse(content="Logout successfully" , status_code= status.HTTP_200_OK)
+
+@auth_router.patch("change-password")
+
+
+async def changePassword(db : AsyncSession = Depends(get_db)):
+    pass
+
+async def forgotPassword(db:AsyncSession =  Depends(get_db)):
+    pass
+
+async def verifyEmail( email : str , db : AsyncSession  =  Depends(get_db)):
+    pass
