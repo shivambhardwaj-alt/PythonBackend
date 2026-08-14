@@ -23,10 +23,7 @@ class Book(BaseModel):
     page_count : int 
     language: LanguageEnum
     createdAt:datetime
-    
     upatedAt : datetime
-
-    
     @computed_field
     @property
     def years_since_publication(self) -> int:

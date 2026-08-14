@@ -14,4 +14,4 @@ class Settings(BaseSettings):
         
         
     )
-Config = Settings() # type: ignore
+Config = Settings()
