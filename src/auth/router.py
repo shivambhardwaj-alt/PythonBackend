@@ -2,8 +2,7 @@ from fastapi import APIRouter , Depends , status ,HTTPException
 
 from src.auth.schema import UserCreateModel , UserLogin
 from src.database.database import get_db
-from src.auth.service import UserService
-# from sqlmodel.ext.asyncio.session import AsyncSession   
+from src.auth.service import UserService  
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.utils import generate_access_token  ,verify_password 
 from src.auth.dependencies import RefreshTokenBearer  , AccessTokenBearer
@@ -31,7 +30,7 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
     return result
     
     
-    # I didn't add more routes here or something left too
+   
 @auth_router.post('/login')
 async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     user  =  await  user_service.get_user(data.email ,db)
@@ -82,18 +81,21 @@ async def get_new_access_token(
     )
     
     
-@auth_router.post("logout")
+@auth_router.post("/logout")
 async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
     print(token_details)
     jti = token_details['jti']
     await add_jti_to_blocklist(jti)
     return JSONResponse(content="Logout successfully" , status_code= status.HTTP_200_OK)
 
-@auth_router.patch("change-password")
 
 
-async def changePassword(db : AsyncSession = Depends(get_db)):
-    pass
+
+@auth_router.patch("/change-password")
+async def changePassword(db : AsyncSession = Depends(get_db) , token_details  : dict  =  Depends(AccessTokenBearer)):
+    print(token_details)
+    return JSONResponse(content = "Changed Successfully" , status_code= status.HTTP_200_OK)
+    
 
 async def forgotPassword(db:AsyncSession =  Depends(get_db)):
     pass

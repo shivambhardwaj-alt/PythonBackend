@@ -28,3 +28,4 @@ class UserService:
         await db.commit()
         await db.refresh(new_user)
         return new_user
+    

@@ -15,8 +15,6 @@ class UserModel(SQLModel , table = True):
     createdAt : datetime  = Field(sa_column = Column(pg.TIMESTAMP ,default= datetime.now))
     updatedAt : datetime = Field(sa_column= Column(pg.TIMESTAMP , default  = datetime.now))
 
-
-
     def __repr__(self):
         return f'User <{self.username}>'
     
