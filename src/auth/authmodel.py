@@ -10,6 +10,7 @@ class UserModel(SQLModel , table = True):
     email : str 
     first_name : str 
     last_name : str 
+    role : str  = Field(sa_column = Column(pg.VARCHAR , server_default  = "user"))
     password_hash : str = Field(exclude= True) 
     is_verified : bool = Field(default = False)
     createdAt : datetime  = Field(sa_column = Column(pg.TIMESTAMP ,default= datetime.now))

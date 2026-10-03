@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncEngine,async_sessionmaker,create_async_engine,AsyncSession
 from sqlalchemy import create_engine , text 
 from config import Config
-
 from sqlalchemy.orm import DeclarativeBase
 engine = create_async_engine(
     Config.DATABASE_URL or "",

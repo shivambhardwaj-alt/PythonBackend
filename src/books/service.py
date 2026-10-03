@@ -1,3 +1,7 @@
+import uuid
+from datetime import datetime
+
+from fastapi import HTTPException, status
 from sqlmodel import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,65 +10,117 @@ from src.database.model import Book
 
 
 class BookService:
+    
 
+   
     async def get_all_books(self, db: AsyncSession):
-        statement = select(Book).order_by(desc(Book.createdAt))
-        result = await db.execute(statement)
-        return result.scalars().all()
+        try:
+            statement = select(Book).order_by(desc(Book.createdAt))
+            result = await db.execute(statement)
 
+            
+            return result.scalars().all()
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print("get_all_books failed:", repr(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error",
+            ) from e
+
+  
     async def get_book(self, book_uid: str, db: AsyncSession):
-        statement = select(Book).where(Book.uid == book_uid)
-        result = await db.execute(statement)
-        return result.scalars().first()
+        try:
+            book_uuid = uuid.UUID(str(book_uid))        
+            statement = select(Book).where(Book.uid == book_uuid)
+            result = await db.execute(statement)
+            book = result.scalars().first()             
 
-    async def create_book(
-        self,
-        data: BookCreateModel,
-        db: AsyncSession,
-    ):
-        book_data = data.model_dump()
+            if book is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Result not found",
+                )
+            return book
 
-        new_book = Book(**book_data)
+        except ValueError:                              
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Result not found",
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            print("get_book failed:", repr(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error",
+            ) from e
 
-        db.add(new_book)
-        await db.commit()
-        await db.refresh(new_book)
+   
+    async def create_book(self, data: BookCreateModel, db: AsyncSession):
+        try:
+            new_book = Book(**data.model_dump())       
 
-        return new_book
+            db.add(new_book)
+            await db.commit()
+            await db.refresh(new_book)
+            return new_book
 
-    async def update_book(
-        self,
-        book_uid: str,
-        data: BookUpdateModel,
-        db: AsyncSession,
-    ):
-        book_to_update = await self.get_book(book_uid, db)
+        except HTTPException:
+            raise
+        except Exception as e:
+            await db.rollback()                        
+            print("create_book failed:", repr(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error",
+            ) from e
 
-        if book_to_update is None:
-            return None
+    
+    async def update_book(self, book_uid: str, data: BookUpdateModel, db: AsyncSession):
+        try:
+           
+            book_to_update = await self.get_book(book_uid, db)
 
-        update_data = data.model_dump(exclude_unset=True)
+            update_data = data.model_dump(exclude_unset=True)   
+            for key, value in update_data.items():
+                setattr(book_to_update, key, value)
 
-        for key, value in update_data.items():
-            setattr(book_to_update, key, value)
+            book_to_update.updatedAt = datetime.now()
 
-        db.add(book_to_update)
-        await db.commit()
-        await db.refresh(book_to_update)
+            db.add(book_to_update)
+            await db.commit()
+            await db.refresh(book_to_update)
+            return book_to_update
 
-        return book_to_update
+        except HTTPException:
+            raise
+        except Exception as e:
+            await db.rollback()
+            print("update_book failed:", repr(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error",
+            ) from e
 
-    async def delete_book(
-        self,
-        book_uid: str,
-        db: AsyncSession,
-    ):
-        book_to_delete = await self.get_book(book_uid, db)
+    
+    async def delete_book(self, book_uid: str, db: AsyncSession):
+        try:
+            book_to_delete = await self.get_book(book_uid, db)   
 
-        if book_to_delete is None:
-            return None
+            await db.delete(book_to_delete)
+            await db.commit()
+            return True
 
-        await db.delete(book_to_delete)
-        await db.commit()
-
-        return True
+        except HTTPException:
+            raise
+        except Exception as e:
+            await db.rollback()
+            print("delete_book failed:", repr(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error",
+            ) from e

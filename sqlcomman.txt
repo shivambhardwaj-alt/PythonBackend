@@ -1,0 +1,469 @@
+// i forgot somewhere to write session.exec statement
+for sql :
+SELECT * FROM USER     => (orm) = > statement  = Select(User) 
+                                    session.exec(statement).all()
+
+SELECT * FROM USER WHERE id i = 1 ; =>(orm) = > (two ways) statement = Select(User).where(User.id == 1)
+                                                    result = session.exec(statement) // will return the object
+                                                    user =result.first()
+
+                                                    // second way 
+
+                                                    user = session.get(User, 1) and done no idea what it return 
+
+                                                    
+SELECT * FROM USER WHERE age > 18       (orm) => statement = Select(User).where(User.age > 18).all()
+
+SELECT * FROM USER WHERE age > 18 AND is_Active = 1 (orm) => statement = Select(User).where(User.age > 18 , User.is_Active == 1).all()
+
+
+SELECT * FROM USER WHERE age > 18 OR is_Active = 1  (orm) => statement = Select(User).where(or_(User.age > 18 , User.isActive == 1)).all()
+
+
+SELECT * FROM USER WHERE name LIKE "%john%"  (orm)=> statement = Select(User).where(User.name.like("%john%")).all()
+                                                    session.exec(statement).all()
+
+SELECT * FROM USER WHERE id IN (1, 2, 3) ;   (orm) => statement = Select(User).where(User.id.in_([1 , 2, 3]))
+                                                        session.exec(statement).all()
+
+
+SELECT * FROM USER WHERE email = "shivam" LIMIT 1;  (orm) => statement = Select(User).where(User.email == "shivam")
+                                                    seesion.exec(statement).first()
+
+
+SELECT * FROM USER LIMIT 5 OFFSET 10 ;(MEANS LEAVE FIRST 10 AND RETURN NEXT 5 RESULT) 
+                                    (ORM) => statement = Select(User).offset(10).limit(5)
+                                            result = session.exec(statement).all()
+SELECT name , email FROM USER    (orm) => statement = Select(User.name , User.email)
+                                            result = session.exec(statement).all()
+
+
+from sqlmodel import func , or_ and  many more 
+
+SELECT COUNT(id) FROM USER      (orm) => statement = SELECT(func.count(User.id))
+                                        result = session.exec(statement).one()
+
+
+// now for inserting documents here 
+
+INSERT INTO (name, email, age) VALUES ("Shivam", "shivam" , 12) (orm) => new_user = User("Shivam", "shivam", 12)
+                                                                        session.add(new_user)
+                                                                        session.commit(
+                                                                        
+                                                                        )
+                                                                        session.refresh(new_user)
+
+
+INSERT INTO user (name, email, age, is_active) VALUES ('Bob', 'bob@example.com', 30, 1);
+INSERT INTO user (name, email, age, is_active) VALUES ('Carl', 'carl@example.com', 22, 1);
+
+RespectedOrm for this  (orm) => users = [
+    User(name="Bob", email="bob@example.com", age=30),
+    User(name="Carl", email="carl@example.com", age=22),
+]
+
+session.add(users)
+session.commit()
+
+
+// update 
+ // bulk 
+UPDATE User SET is_Active = 1 where is_Active = 0 (orm) => statement = update(User).where(User.is_Active == False).values(User.isActive = True)
+                                                            session.exec(statement)
+                                                            session.commit()
+// single user update 
+UPDATE User SET age = 26 where id = 1;    (orm) => user = session.get(user , 1) 
+                                                    user.age = 26
+                                                    session.add(user)
+                                                    session.commit()
+
+// delete 
+DELETE FROM User WHERE id  = 1 ;  (orm) => user = session.get(user, 1)
+                                            session.delete(user)
+                                            session.commit()
+                                
+DELETE FROM user where isActive =  0 ;(ORM) => statement = delete(User).where(User.isActive == False)
+                                                session.exec(statement)
+                                                session.commit()
+                        // here still need to know if it return something or not
+
+
+
+
+here it was what i supposed to learn 
+
+
+
+
+
+
+# SQLModel Query Reference — with Raw SQL Equivalents
+
+Sample model used throughout:
+
+```python
+from typing import Optional
+from sqlmodel import Field, SQLModel, Session, select, create_engine
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    email: str
+    age: int
+    is_active: bool = True
+
+engine = create_engine("sqlite:///database.db")
+```
+
+Assume `session = Session(engine)` is open for all examples below.
+
+---
+
+## 1. SELECT — Get all rows
+
+```python
+statement = select(User)
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user;`
+
+---
+
+## 2. SELECT — Get one row by primary key
+
+```python
+user = session.get(User, 1)
+```
+**SQL:** `SELECT * FROM user WHERE id = 1;`
+
+---
+
+## 3. SELECT — WHERE (filter, single condition)
+
+```python
+statement = select(User).where(User.age > 18)
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user WHERE age > 18;`
+
+---
+
+## 4. SELECT — WHERE (multiple conditions, AND)
+
+```python
+statement = select(User).where(User.age > 18, User.is_active == True)
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user WHERE age > 18 AND is_active = 1;`
+
+---
+
+## 5. SELECT — OR condition
+
+```python
+from sqlmodel import or_
+
+statement = select(User).where(or_(User.age < 18, User.age > 60))
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user WHERE age < 18 OR age > 60;`
+
+---
+
+## 6. SELECT — LIKE (pattern match)
+
+```python
+statement = select(User).where(User.name.like("%john%"))
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user WHERE name LIKE '%john%';`
+
+---
+
+## 7. SELECT — IN
+
+```python
+statement = select(User).where(User.id.in_([1, 2, 3]))
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user WHERE id IN (1, 2, 3);`
+
+---
+
+## 8. SELECT — First result only
+
+```python
+statement = select(User).where(User.email == "a@example.com")
+user = session.exec(statement).first()
+```
+**SQL:** `SELECT * FROM user WHERE email = 'a@example.com' LIMIT 1;`
+
+---
+
+## 9. SELECT — ORDER BY
+
+```python
+statement = select(User).order_by(User.age.desc())
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user ORDER BY age DESC;`
+
+---
+
+## 10. SELECT — LIMIT / OFFSET (pagination)
+
+```python
+statement = select(User).offset(10).limit(5)
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT * FROM user LIMIT 5 OFFSET 10;`
+
+---
+
+## 11. SELECT — Specific columns only
+
+```python
+statement = select(User.name, User.email)
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT name, email FROM user;`
+
+---
+
+## 12. COUNT
+
+```python
+from sqlmodel import func
+
+statement = select(func.count(User.id))
+count = session.exec(statement).one()
+```
+**SQL:** `SELECT COUNT(id) FROM user;`
+
+---
+
+## 13. INSERT (Create)
+
+```python
+new_user = User(name="Alice", email="alice@example.com", age=25)
+session.add(new_user)
+session.commit()
+session.refresh(new_user)
+```
+**SQL:** `INSERT INTO user (name, email, age, is_active) VALUES ('Alice', 'alice@example.com', 25, 1);`
+
+---
+
+## 14. INSERT — Bulk insert
+
+```python
+users = [
+    User(name="Bob", email="bob@example.com", age=30),
+    User(name="Carl", email="carl@example.com", age=22),
+]
+session.add_all(users)
+session.commit()
+```
+**SQL:**
+```sql
+INSERT INTO user (name, email, age, is_active) VALUES ('Bob', 'bob@example.com', 30, 1);
+INSERT INTO user (name, email, age, is_active) VALUES ('Carl', 'carl@example.com', 22, 1);
+```
+
+---
+
+## 15. UPDATE
+
+```python
+user = session.get(User, 1)
+user.age = 26
+session.add(user)
+session.commit()
+```
+**SQL:** `UPDATE user SET age = 26 WHERE id = 1;`
+
+---
+
+## 16. UPDATE — Bulk update (no fetch)
+
+```python
+from sqlmodel import update
+
+statement = update(User).where(User.is_active == False).values(is_active=True)
+session.exec(statement)
+session.commit()
+```
+**SQL:** `UPDATE user SET is_active = 1 WHERE is_active = 0;`
+
+---
+
+## 17. DELETE (single row)
+
+```python
+user = session.get(User, 1)
+session.delete(user)
+session.commit()
+```
+**SQL:** `DELETE FROM user WHERE id = 1;`
+
+---
+
+## 18. DELETE — Bulk delete (no fetch)
+
+```python
+from sqlmodel import delete
+
+statement = delete(User).where(User.is_active == False)
+session.exec(statement)
+session.commit()
+```
+**SQL:** `DELETE FROM user WHERE is_active = 0;`
+
+---
+
+## 19. JOIN — Two related tables
+
+```python
+class Team(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+
+class Hero(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    team_id: Optional[int] = Field(default=None, foreign_key="team.id")
+
+statement = select(Hero, Team).join(Team, Hero.team_id == Team.id)
+results = session.exec(statement).all()
+```
+**SQL:**
+```sql
+SELECT hero.*, team.*
+FROM hero
+JOIN team ON hero.team_id = team.id;
+```
+
+---
+
+## 20. LEFT JOIN
+
+```python
+from sqlalchemy import outerjoin
+statement = select(Hero, Team).join(Team, isouter=True)
+results = session.exec(statement).all()
+```
+**SQL:**
+```sql
+SELECT hero.*, team.*
+FROM hero
+LEFT JOIN team ON hero.team_id = team.id;
+```
+
+---
+
+## 21. GROUP BY + aggregate
+
+```python
+statement = (
+    select(User.is_active, func.count(User.id))
+    .group_by(User.is_active)
+)
+results = session.exec(statement).all()
+```
+**SQL:**
+```sql
+SELECT is_active, COUNT(id) FROM user GROUP BY is_active;
+```
+
+---
+
+## 22. HAVING
+
+```python
+statement = (
+    select(User.is_active, func.count(User.id).label("total"))
+    .group_by(User.is_active)
+    .having(func.count(User.id) > 5)
+)
+results = session.exec(statement).all()
+```
+**SQL:**
+```sql
+SELECT is_active, COUNT(id) AS total
+FROM user
+GROUP BY is_active
+HAVING COUNT(id) > 5;
+```
+
+---
+
+## 23. DISTINCT
+
+```python
+statement = select(User.age).distinct()
+results = session.exec(statement).all()
+```
+**SQL:** `SELECT DISTINCT age FROM user;`
+
+---
+
+## 24. NOT
+
+```python
+statement = select(User).where(User.is_active == False)
+# or
+statement = select(User).where(~User.is_active)
+```
+**SQL:** `SELECT * FROM user WHERE is_active = 0;`
+
+---
+
+## 25. BETWEEN
+
+```python
+statement = select(User).where(User.age.between(18, 30))
+```
+**SQL:** `SELECT * FROM user WHERE age BETWEEN 18 AND 30;`
+
+---
+
+## 26. IS NULL / IS NOT NULL
+
+```python
+statement = select(User).where(User.email == None)   # IS NULL
+statement = select(User).where(User.email.is_not(None))  # IS NOT NULL
+```
+**SQL:**
+```sql
+SELECT * FROM user WHERE email IS NULL;
+SELECT * FROM user WHERE email IS NOT NULL;
+```
+
+---
+
+## Quick reference table
+
+| Operation | SQLModel | SQL |
+|---|---|---|
+| All rows | `select(User)` | `SELECT * FROM user` |
+| By PK | `session.get(User, id)` | `WHERE id = ?` |
+| Filter | `.where(cond)` | `WHERE ...` |
+| OR | `or_(a, b)` | `OR` |
+| Pattern | `.like("%x%")` | `LIKE '%x%'` |
+| Set membership | `.in_([...])` | `IN (...)` |
+| Order | `.order_by(col.desc())` | `ORDER BY ... DESC` |
+| Page | `.offset(n).limit(m)` | `OFFSET n LIMIT m` |
+| Count | `func.count(col)` | `COUNT(col)` |
+| Insert | `session.add(obj)` | `INSERT INTO` |
+| Update | mutate + `session.add` | `UPDATE ... SET` |
+| Bulk update | `update(Model).where().values()` | `UPDATE ... WHERE` |
+| Delete | `session.delete(obj)` | `DELETE FROM` |
+| Bulk delete | `delete(Model).where()` | `DELETE FROM ... WHERE` |
+| Join | `.join(Other, cond)` | `JOIN` |
+| Left join | `.join(Other, isouter=True)` | `LEFT JOIN` |
+| Group | `.group_by(col)` | `GROUP BY` |
+| Having | `.having(cond)` | `HAVING` |
+| Distinct | `.distinct()` | `DISTINCT` |
+| Null check | `== None` / `.is_not(None)` | `IS NULL` / `IS NOT NULL` |
+
+All patterns above use the same `session.exec(statement)` call pattern — `.all()` for many rows, `.first()` for one-or-none, `.one()` for exactly-one (raises if 0 or 2+ found).

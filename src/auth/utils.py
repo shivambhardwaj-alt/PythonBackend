@@ -13,11 +13,15 @@ def verify_password(password : str , hash : str):
 
 
 def generate_access_token(user_data : dict , expiry : timedelta = timedelta(minutes=15) , refresh : bool  = False):
+    print("User data is :")
+    print(user_data)
     payload = {}
     payload["user"] = user_data
     payload['exp'] = datetime.now() + expiry
     payload['jti'] = str(uuid.uuid4())
     payload['refresh'] = refresh
+    if "role"  in user_data: 
+        payload["role"] = user_data["role"] 
     token = jwt.encode(payload= payload , key = Config.JWT_SECRET , algorithm=Config.JWT_ALGORITHM)
     return token
     

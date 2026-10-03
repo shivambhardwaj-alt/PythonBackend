@@ -1,51 +1,20 @@
 import uuid
-from datetime import datetime , date
-from enum import Enum 
-from typing import List
+from datetime import datetime, date
+import sqlalchemy.dialects.postgresql as pg
+from sqlalchemy import Column
+from sqlmodel import SQLModel, Field
 
-from pydantic import BaseModel , ConfigDict , Field , field_validator , model_validator , computed_field 
+class Book(SQLModel, table=True):          
+    __tablename__ = "books" # type: ignore
 
-
-class LanguageEnum(str, Enum):
-    ENGLISH  = "en"
-    HINDI = "hi"
-    SPANISH = "es"
-    FRENCH = "fr"
-    GERMAN = "de"
-    
-class Book(BaseModel):
-    model_config = ConfigDict(from_attributes = True)
-    uuid : uuid.UUID
-    title : str
-    author : str 
-    isbn : str
-    published:str
-    page_count : int 
-    language: LanguageEnum
-    createdAt:datetime
-    upatedAt : datetime
-    @computed_field
-    @property
-    def years_since_publication(self) -> int:
-        return date.today().year()  - self.published.year()
-    
-
-
-class BookCreateModel(BaseModel):
-    title : str  = Field(min_length = 1, max_length = 200)
-    author: str = Field(min_length = 1 , max_length = 200)
-    publisher : str = Field(min_length = 1, max_length = 200)
-    published_date : date 
-    isbn: str = Field(pattern=r"^(97(8|9))?\d{9}(\d|X)$")
-    page_count : int  = Field(gt = 0 , le = 2000)
-    language  : LanguageEnum
-    
-    @field_validator("title" , "author" , "publisher")
-    @classmethod
-    def strip_and_check_not_blank(cls , v : str) -> str:
-        v = v.strip()
-        if not v :
-            raise ValueError("Field Cannot be blank whitespace")
-        return v
-
-        
+    uid: uuid.UUID = Field(
+        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, nullable=False, default=uuid.uuid4)
+    )
+    title: str
+    author: str
+    publisher: str
+    published_date: date
+    page_count: int
+    language: str
+    createdAt: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))
+    updatedAt: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))

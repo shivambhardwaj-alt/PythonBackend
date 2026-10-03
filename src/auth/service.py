@@ -28,4 +28,11 @@ class UserService:
         await db.commit()
         await db.refresh(new_user)
         return new_user
+    async def get_user_by_email(self, email : str , db : AsyncSession):
+        statement = select(UserModel).where(email == email)
+        result = await db.execute(statement)
+        
+        return result.scalars().first() # type: ignore
+        
+        
     

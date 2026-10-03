@@ -14,7 +14,7 @@ user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
 
 @auth_router.post("/signup" )
-async def create_user_account(data : UserCreateModel , db : AsyncSession =  Depends(get_db)):
+async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Depends(get_db)):
     email  = data.email 
     user_exists = await user_service.user_exists(email , db)
     if user_exists : 
@@ -34,14 +34,15 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
 @auth_router.post('/login')
 async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     user  =  await  user_service.get_user(data.email ,db)
+    
     if  user is not None :
         valid_password = verify_password(data.password, user.password_hash)  
         if valid_password : 
             access_token = generate_access_token(
-                user_data = {"email"  : data.email , "user_uid" : str(user.uid)}
+                user_data = {"email"  : data.email , "user_uid" : str(user.uid) ,"role" : user.role}
             )
             refresh_token  = generate_access_token(
-                user_data = {"email" : data.email , "user_uid" : str(user.uid)},
+                user_data = {"email" : data.email , "user_uid" : str(user.uid) ,"role" : user.role},
                 refresh  = True, 
                 expiry = timedelta(days = REFRESH_TOKEN_EXPIRY)
             )
@@ -52,7 +53,8 @@ async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
                     "refresh_token" : refresh_token,
                     "user" : {
                         "user_uid" : str(user.uid),
-                        "user.email" : user.email
+                        "user.email" : user.email,
+                        "user.role" : user.role
                     }
                 }
             )
