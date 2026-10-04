@@ -6,6 +6,10 @@ from src.database.database import engine
 from sqlmodel import SQLModel
 from src.database.model import Book
 from src.auth.router import auth_router
+from src.utils.middleware import register_middleware 
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
 @asynccontextmanager
 async def life_span(app: FastAPI):
     print("Server is running ...")
@@ -22,6 +26,23 @@ app = FastAPI(
     description= "A REST api for books"
 
 )
+
+
+register_middleware(app)
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins= ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts = ["localhost" , "127.0.0.1"]
+)
+
+
+
 app.include_router(bookRouter , prefix = f"/api/{version}/books" , tags=['books'])
 app.include_router(auth_router, prefix = f'/api/{version}/auth' , tags = ['auth'])
 

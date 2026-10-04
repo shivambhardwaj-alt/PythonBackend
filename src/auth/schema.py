@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 
 class UserCreateModel(BaseModel):
     username: str = Field(max_length=8)
@@ -17,4 +17,7 @@ class UserCreateModel(BaseModel):
 class UserLogin(BaseModel):
     email : str  = Field(max_length = 40)
     password : str  = Field(max_length = 72)
+class EmailModel(BaseModel):
+    addresses : List[str]
+    
     

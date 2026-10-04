@@ -1,6 +1,6 @@
 from fastapi import APIRouter , Depends , status ,HTTPException
 
-from src.auth.schema import UserCreateModel , UserLogin
+from src.auth.schema import UserCreateModel , UserLogin , EmailModel
 from src.database.database import get_db
 from src.auth.service import UserService  
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +9,31 @@ from src.auth.dependencies import RefreshTokenBearer  , AccessTokenBearer
 from datetime import timedelta , datetime
 from fastapi.responses import JSONResponse
 from src.database.redis import add_jti_to_blocklist 
+from src.utils.mail import mail , create_message
 auth_router  = APIRouter()
 user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
+
+
+
+@auth_router.post("/send_mail" , status_code= status.HTTP_200_OK)
+async def verify_user(emails : EmailModel):
+    emails  =  emails.addresses
+    html = "<h1>Welcome to the App</h1>"
+    message = create_message(
+        recipients = emails , 
+        subject  = "Welcome", 
+        body  = html, 
+        
+    )
+    await mail.send_message(message)
+    return {"message":"Email sent Successfully"}
+    
+    
+
+
+
+
 
 @auth_router.post("/signup" )
 async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Depends(get_db)):
