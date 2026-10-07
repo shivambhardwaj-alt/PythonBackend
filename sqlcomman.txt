@@ -1,4 +1,5 @@
 // i forgot somewhere to write session.exec statement
+// needed to add celery and reddis
 for sql :
 SELECT * FROM USER     => (orm) = > statement  = Select(User) 
                                     session.exec(statement).all()
