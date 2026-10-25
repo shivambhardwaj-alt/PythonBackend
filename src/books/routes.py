@@ -13,8 +13,9 @@ book_service = BookService()
 
 
 
-admin_only = Depends(RoleChecker(["admin"]))
-any_user = Depends(RoleChecker(["admin", "user"]))
+admin_only  = Depends(RoleChecker("admin"))
+print(f"Value of admin+only is : {admin_only}")
+any_user = Depends(RoleChecker("user" , "admin"))
 
 
 @bookRouter.get(

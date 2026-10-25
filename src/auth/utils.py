@@ -1,7 +1,9 @@
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta , timezone
+from fastapi import HTTPException
 from config import Config
-from typing import Enum 
+from config import Settings
+from enum import Enum
 import jwt
 import uuid
 password_context = CryptContext(
@@ -13,7 +15,7 @@ def verify_password(password : str , hash : str):
     return password_context.verify(password , hash)
 
 
-
+settings = Settings() # type: ignore
 class TokenType (str, Enum ):
     ACCESS  = "access" 
     REFRESH = "refresh"
@@ -25,21 +27,29 @@ class TokenError(Exception):
         super().__init__(message) 
    
 
+EXPIRY = timedelta(hours= 24)
 
-def generate_access_token(user_data : dict , expiry : timedelta = timedelta(minutes=15) , refresh : bool  = False):
-    print("User data is :")
-    print(user_data)
-    payload = {}
-    payload["user"] = user_data
-    payload['exp'] = datetime.now() + expiry
-    payload['jti'] = str(uuid.uuid4())
-    payload['refresh'] = refresh
-    if "role"  in user_data: 
-        payload["role"] = user_data["role"] 
-    token = jwt.encode(payload= payload , key = Config.JWT_SECRET , algorithm=Config.JWT_ALGORITHM)
-    return token
+def create_token( user_data : dict , type : str ):
+    now = datetime.now(timezone.utc)
+    payload = {
+    "sub" : user_data['user_uid'],
+    "email" : user_data['email'],
+    "role" : user_data['role'],
+    "type" : type,
+    "jti" : str(uuid.uuid4()),
+    "iat" : now ,
+    "exp": now + EXPIRY
+    
+    }
     
     
+    return jwt.encode(payload= payload,key = settings.JWT_SECRET , algorithm  = settings.JWT_ALGORITHM)
+
+def generate_access_token( user_data : dict , type : str):
+    return create_token(user_data , type)
+def generate_refresh_token(user_data: dict, type : str ):
+    return create_token(user_data, type)
+
 def decode_access_token(token : str) :
     try :  
         token_data = jwt.decode(
@@ -49,6 +59,6 @@ def decode_access_token(token : str) :
             )
         return token_data
     except jwt.PyJWTError as e :
-        print(e)
-        return None 
+        raise Exception("Jwt is not working fine !!!")
+
         

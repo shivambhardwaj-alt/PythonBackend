@@ -4,7 +4,7 @@ from src.auth.schema import UserCreateModel , UserLogin , EmailModel , AdminCrea
 from src.database.database import get_db
 from src.auth.service import UserService  
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.auth.utils import generate_access_token  ,verify_password 
+from src.auth.utils import generate_access_token  ,verify_password ,generate_refresh_token
 from src.auth.dependencies import RefreshTokenBearer  , AccessTokenBearer
 from datetime import timedelta , datetime
 from fastapi.responses import JSONResponse
@@ -72,17 +72,17 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
 @auth_router.post('/login')
 async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     user  =  await  user_service.get_user(data.email ,db)
+    print(f'User is : {user}')
     
     if  user is not None :
         valid_password = verify_password(data.password, user.password_hash)  
         if valid_password : 
             access_token = generate_access_token(
-                user_data = {"email"  : data.email , "user_uid" : str(user.uid) ,"role" : user.role}
+                user_data = { "email"  : data.email , "user_uid" : str(user.uid) ,"role" : user.role } , type =  "access"
             )
             refresh_token  = generate_access_token(
-                user_data = {"email" : data.email , "user_uid" : str(user.uid) ,"role" : user.role},
-                refresh  = True, 
-                expiry = timedelta(days = REFRESH_TOKEN_EXPIRY)
+                user_data = {"email" : data.email , "user_uid" : str(user.uid) ,"role" : user.role }, 
+                type = "refresh"
             )
             return JSONResponse(
                 {
@@ -111,7 +111,8 @@ async def get_new_access_token(
     user_data = token_details["user"]
 
     new_access_token = generate_access_token(
-        user_data=user_data
+        user_data=user_data, 
+        type  = "access"
     )
 
     return JSONResponse(
