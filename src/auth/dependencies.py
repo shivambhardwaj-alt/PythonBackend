@@ -41,14 +41,18 @@ class TokenBearer(HTTPBearer):
         super().__init__(auto_error=False)
 
     async def __call__(self, request: Request) -> dict:
+        print(f'Request is in Token bearer function ')
         
         credentials: Optional[HTTPAuthorizationCredentials] = await super().__call__(request)
+        print(f'Credentials of the user are : {credentials}')
         if credentials is None:
             raise unauthorized("Missing 'Authorization: Bearer <token>' header")
 
       
         try:
             payload = decode_access_token(credentials.credentials)
+            print(f'Payload is : {payload}')
+            print(f'Expected value is : {self.expected_type.value}')
         except TokenError as error:
             raise unauthorized(error.message)
         if payload.get("type") != self.expected_type.value:
@@ -56,7 +60,7 @@ class TokenBearer(HTTPBearer):
 
         if await token_in_blocklist(payload["jti"]):
             raise unauthorized("Token has been revoked. Please log in again")
-
+    
         return payload
 
 

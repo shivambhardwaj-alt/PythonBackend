@@ -137,16 +137,23 @@ async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User not Found")
     
 """
-
 Route handler for generating new access token on the basis of refresh token here
+
 """
 
 @auth_router.post("/refresh-token")
 async def get_new_access_token(
     token_details: dict = Depends(RefreshTokenBearer())
 ):
-
-    user_data = token_details["user"]
+   
+    
+    
+    user_data = {
+        "user_uid" : token_details['sub'],
+        "email":token_details['email'],
+        "role" : token_details['role'],
+        
+    }
 
     new_access_token = generate_access_token(
         user_data=user_data, 
@@ -165,21 +172,19 @@ async def get_new_access_token(
     """
     Route handler for the logout here 
     
-    
     """
     
 @auth_router.post("/logout")
-async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
-    print(token_details)
+async def logout(token_details   : dict = Depends(AccessTokenBearer())) :
+    print(f'Token details are : {token_details}')
     jti = token_details['jti']
-    await add_jti_to_blocklist(jti)
+    await add_jti_to_blocklist(jti , exp_timestamp=token_details['exp'])
     return JSONResponse(content="Logout successfully" , status_code= status.HTTP_200_OK)
 
-
-
-
 """
+
 Route hanlder for the change password here
+
 """
 
 
@@ -194,3 +199,7 @@ async def forgotPassword(db:AsyncSession =  Depends(get_db)):
 
 async def verifyEmail( email : str , db : AsyncSession  =  Depends(get_db)):
     pass
+
+
+
+
