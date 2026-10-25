@@ -23,7 +23,7 @@ def validate_password_strength(password: str) -> str:
 
 
 class UserCreateModel(BaseModel):
-    username: str = Field(min_length=3, max_length=8)
+    username: str = Field(min_length=3, max_length=50)
     email: EmailStr = Field(max_length=40)
     password: str = Field(min_length=8, max_length=72)
 

@@ -33,6 +33,10 @@ async def verify_user(emails : EmailModel):
     
 
 
+"""
+sign up for the user here ..
+
+"""
 
 
 
@@ -43,7 +47,21 @@ async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Dep
     if user_exists : 
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User with email already exists")
     new_user =  await user_service.create_user(data , db)
-    return new_user
+
+    if not new_user:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR , detail  = "Internal Server Error")
+    access_token = generate_access_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "access")
+    refresh_token = generate_refresh_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "refresh")
+    return JSONResponse(status_code= 201 , content = {"access_token"  : access_token , "refresh_token" : refresh_token , "user_id" : str(new_user.uid), "email" : new_user.email , "role" : new_user.role  })
+
+
+
+
+
+""""
+Sign up for the admin creation here
+
+"""
 @auth_router.post("/admin-create")
 async def create_admin_user(data : AdminCreateModel , db: AsyncSession  = Depends(get_db)):
     try: 
@@ -56,9 +74,21 @@ async def create_admin_user(data : AdminCreateModel , db: AsyncSession  = Depend
             raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "Admin with email already exists")
         new_user = await user_service.create_user(data,  db) # type: ignore
         
-        return new_user 
+        if not new_user:
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR , detail  = "Internal Server Error")
+        access_token = generate_access_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "access")
+        refresh_token = generate_refresh_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "refresh")
+        return JSONResponse(status_code= 201 , content = {"access_token"  : access_token , "refresh_token" : refresh_token , "user_id" : str(new_user.uid), "email" : new_user.email , "role" : new_user.role  })
     except :
         raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR , detail  = "Internal Sever Error.Please try again later...")
+
+
+
+"""Getting the profile by email here  """
+
+
+
+
 
 @auth_router.get("/get-user")
 async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
@@ -67,6 +97,9 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND , detail  = "User not Found")
     return result
     
+    
+    
+""" Logging Route handler """
     
    
 @auth_router.post('/login')
@@ -103,6 +136,11 @@ async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     else:
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User not Found")
     
+"""
+
+Route handler for generating new access token on the basis of refresh token here
+"""
+
 @auth_router.post("/refresh-token")
 async def get_new_access_token(
     token_details: dict = Depends(RefreshTokenBearer())
@@ -122,6 +160,14 @@ async def get_new_access_token(
     )
     
     
+    
+    
+    """
+    Route handler for the logout here 
+    
+    
+    """
+    
 @auth_router.post("/logout")
 async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
     print(token_details)
@@ -130,6 +176,11 @@ async def logout(token_details   : dict = Depends(AccessTokenBearer)) :
     return JSONResponse(content="Logout successfully" , status_code= status.HTTP_200_OK)
 
 
+
+
+"""
+Route hanlder for the change password here
+"""
 
 
 @auth_router.patch("/change-password")
