@@ -1,11 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI , status ,HTTPException
+from fastapi.responses import JSONResponse
 from src.books.routes import bookRouter
 from contextlib import asynccontextmanager
 from src.database.database import get_db
 from src.database.database import engine
 from sqlmodel import SQLModel
 from src.database.model import Book
-from src.auth.router import auth_router
+from src.auth.router import auth_router ,me_router
 from src.utils.middleware import register_middleware 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -28,6 +29,8 @@ app = FastAPI(
 )
 
 
+
+
 register_middleware(app)
 app.add_middleware(
     CORSMiddleware, 
@@ -42,8 +45,16 @@ app.add_middleware(
 )
 
 
+@app.get("/health" , tags = ["health"])
+async def health_check():
+    try: 
+        return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Version is working fine"})
+    except:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = "First path is broken !")
 
 app.include_router(bookRouter , prefix = f"/api/{version}/books" , tags=['books'])
 app.include_router(auth_router, prefix = f'/api/{version}/auth' , tags = ['auth'])
+app.include_router(me_router , prefix = f'/api/{version}/me' , tags = ['myself'])
+
 
 

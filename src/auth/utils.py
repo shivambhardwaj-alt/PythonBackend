@@ -1,6 +1,7 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from config import Config
+from typing import Enum 
 import jwt
 import uuid
 password_context = CryptContext(
@@ -10,6 +11,19 @@ def generate_password_hash(password : str):
     return password_context.hash(password)
 def verify_password(password : str , hash : str):
     return password_context.verify(password , hash)
+
+
+
+class TokenType (str, Enum ):
+    ACCESS  = "access" 
+    REFRESH = "refresh"
+
+
+class TokenError(Exception):
+    def __init__(self, message):
+        self.message = message 
+        super().__init__(message) 
+   
 
 
 def generate_access_token(user_data : dict , expiry : timedelta = timedelta(minutes=15) , refresh : bool  = False):

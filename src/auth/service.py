@@ -20,6 +20,7 @@ class UserService:
     """
     
     async def create_user(self, data: UserCreateModel, db: AsyncSession):
+        print("Request is in create_user method of service.py")
         user_data_dict = data.model_dump()
         plain_password = user_data_dict.pop("password")
         user_data_dict["password_hash"] = generate_password_hash(plain_password)
@@ -27,6 +28,7 @@ class UserService:
         db.add(new_user)
         await db.commit()
         await db.refresh(new_user)
+        print("Request completed")
         return new_user
     async def get_user_by_email(self, email : str , db : AsyncSession):
         statement = select(UserModel).where(email == email)

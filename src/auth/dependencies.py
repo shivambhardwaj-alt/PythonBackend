@@ -1,90 +1,141 @@
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Request, HTTPException, status, Depends
-from src.auth.utils import decode_access_token
-from src.database.redis import token_in_blocklist
-from src.database.database import get_db , AsyncSession
+"""
+Auth dependencies for FastAPI.
+
+Order of checks on a protected request:
+    1. TokenBearer reads "Authorization: Bearer <token>"
+    2. decode_token() verifies the signature and expiry
+    3. The token type is checked (access vs refresh)
+    4. The token's jti is checked against the Redis blocklist
+    5. get_current_user() loads the user from the database
+    6. RoleChecker compares the user's role with the allowed roles
+"""
+from typing import Optional
+
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from src.auth.service import UserService
-from .authmodel import UserModel
-from typing import List , Any
-user_service =  UserService()
+from src.auth.utils import TokenError, TokenType, decode_token
+from src.database.database import AsyncSession, get_db
+from src.database.redis import token_in_blocklist
+
+user_service = UserService()
+
+
+# ─────────────────────────────────────────────────────────────
+# Error helpers
+# ─────────────────────────────────────────────────────────────
+def unauthorized(message: str) -> HTTPException:
+    """401: we don't know who you are (missing / bad / expired token)."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=message,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def forbidden(message: str) -> HTTPException:
+    """403: we know who you are, but you're not allowed to do this."""
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=message,
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# Token checking
+# ─────────────────────────────────────────────────────────────
 class TokenBearer(HTTPBearer):
-        def __init__(self, auto_error: bool = True):
-            print("Request came here [TokenBearer.__init__]")
-        
-            HTTPBearer.__init__(self, auto_error=auto_error)
+    """
+    Base class with all the checking logic.
+    Subclasses only set `expected_type`.
+    Returns the decoded token payload (a dict).
+    """
 
-        async def __call__(self, request: Request):
-            print("Request also came here [TokenBearer.__call__]")
+    expected_type: TokenType
 
-            
-            creds: HTTPAuthorizationCredentials = await HTTPBearer.__call__(self, request)
+    def __init__(self):
+        # auto_error=False: return None for a missing header, so we can raise our own 401
+        super().__init__(auto_error=False)
 
-            token = creds.credentials
+    async def __call__(self, request: Request) -> dict:
+        # 1. Read the header
+        credentials: Optional[HTTPAuthorizationCredentials] = await super().__call__(request)
+        if credentials is None:
+            raise unauthorized("Missing 'Authorization: Bearer <token>' header")
 
-            token_data = decode_access_token(token)
+        # 2. Verify signature and expiry
+        try:
+            payload = decode_token(credentials.credentials)
+        except TokenError as error:
+            raise unauthorized(error.message)
 
-            if token_data is None:
-                print("Error happened: token could not be decoded")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token is invalid or expired",
-                )
-            print("Request Came here  till token in blocklist")
+        # 3. Right kind of token for this endpoint?
+        if payload.get("type") != self.expected_type.value:
+            raise unauthorized(f"Please provide an {self.expected_type.value} token")
 
-            # if await token_in_blocklist(token_data["jti"]):
-            #     raise HTTPException(
-            #         status_code=status.HTTP_403_FORBIDDEN,
-            #         detail={
-            #             "error": "This token is invalid or has been revoked",
-            #             "resolution": "Please get a new token",
-            #         },
-            #     )
-                
-            print("token in blockList has been verified")
+        # 4. Revoked by logout?
+        if await token_in_blocklist(payload["jti"]):
+            raise unauthorized("Token has been revoked. Please log in again")
 
-        
-            self.verify_token(token_data)
-            print("Returning token here ....")
-
-            return token_data
-
-        def verify_token(self, token_data: dict):
-            
-            
-            raise NotImplementedError("Please override this method in a subclass")
+        return payload
 
 
 class AccessTokenBearer(TokenBearer):
-        def verify_token(self, token_data: dict):
-            if token_data and token_data.get("refresh"):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Please provide an access token",
-                )
+    """Accepts only access tokens. Use on normal API routes."""
+    expected_type = TokenType.ACCESS
 
 
 class RefreshTokenBearer(TokenBearer):
-        def verify_token(self, token_data: dict):
-            if not token_data or not token_data.get("refresh"):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Please provide a refresh token",
-                )
+    """Accepts only refresh tokens. Use only on /refresh_token."""
+    expected_type = TokenType.REFRESH
 
 
-
+# Create once, reuse everywhere
 access_token_bearer = AccessTokenBearer()
+refresh_token_bearer = RefreshTokenBearer()
 
 
-async def get_current_user(token_details: dict = Depends(access_token_bearer) , session : AsyncSession = Depends(get_db)):
-        user_email =  token_details['user']['email']
-        user = await user_service.get_user_by_email(user_email , session)
-        return user 
-class RoleChecker : 
-    def __init__(self, allowed_roles : List[str]) -> None:
-        self.allowed_roles = allowed_roles
-    def __call__(self , current_user : UserModel  = Depends(get_current_user)) -> Any:
+# ─────────────────────────────────────────────────────────────
+# Current user
+# ─────────────────────────────────────────────────────────────
+async def get_current_user(
+    token_payload: dict = Depends(access_token_bearer),
+    db: AsyncSession = Depends(get_db),
+):
+    """Load the user who owns the access token. The role comes from the database."""
+    email = token_payload.get("email")
+    if not email:
+        raise unauthorized("Token does not contain an email")
+
+    user = await user_service.get_user_by_email(email, db)
+    if user is None:
+        raise unauthorized("User no longer exists")
+    return user
+
+
+# ─────────────────────────────────────────────────────────────
+# Roles
+# ─────────────────────────────────────────────────────────────
+class RoleChecker:
+    """
+    admin_only = RoleChecker("admin")
+    any_user   = RoleChecker("admin", "user")
+
+    @router.delete("/{id}", dependencies=[Depends(admin_only)])
+    async def route(user = Depends(admin_only)):   # also gives you the user
+    """
+
+    def __init__(self, *allowed_roles: str):
+        if not allowed_roles:
+            raise ValueError("RoleChecker needs at least one role")
+        self.allowed_roles = set(allowed_roles)
+
+    async def __call__(self, current_user=Depends(get_current_user)):
         if current_user.role not in self.allowed_roles:
-            raise HTTPException(status_code=  status.HTTP_403_FORBIDDEN , detail= "You are not allowed to perform this action")
-        else:
-            return True
+            raise forbidden("You are not allowed to perform this action")
+        return current_user
+
+
+admin_only = RoleChecker("admin")
+any_user = RoleChecker("admin", "user")

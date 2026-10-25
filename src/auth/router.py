@@ -1,6 +1,6 @@
 from fastapi import APIRouter , Depends , status ,HTTPException
 
-from src.auth.schema import UserCreateModel , UserLogin , EmailModel
+from src.auth.schema import UserCreateModel , UserLogin , EmailModel , AdminCreateModel
 from src.database.database import get_db
 from src.auth.service import UserService  
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from src.database.redis import add_jti_to_blocklist 
 from src.utils.mail import mail , create_message
 auth_router  = APIRouter()
+me_router = APIRouter()
 user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
 
@@ -43,6 +44,21 @@ async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Dep
         raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "User with email already exists")
     new_user =  await user_service.create_user(data , db)
     return new_user
+@auth_router.post("/admin-create")
+async def create_admin_user(data : AdminCreateModel , db: AsyncSession  = Depends(get_db)):
+    try: 
+        print("request is in create_admin_user method ")
+        print(f"data is {data}")
+        email = data.email 
+        user_exists = await user_service.user_exists(email , db)
+        print(f"user_exists is : {user_exists}")
+        if user_exists:
+            raise HTTPException(status.HTTP_403_FORBIDDEN , detail = "Admin with email already exists")
+        new_user = await user_service.create_user(data,  db) # type: ignore
+        
+        return new_user 
+    except :
+        raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR , detail  = "Internal Sever Error.Please try again later...")
 
 @auth_router.get("/get-user")
 async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
