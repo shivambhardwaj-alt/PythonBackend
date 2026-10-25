@@ -190,15 +190,12 @@ Route hanlder for the change password here
 
 @auth_router.patch("/change-password")
 async def changePassword(db : AsyncSession = Depends(get_db) , token_details  : dict  =  Depends(AccessTokenBearer)):
-    print(token_details)
     return JSONResponse(content = "Changed Successfully" , status_code= status.HTTP_200_OK)
+
+
+async def verifyEmail( email : str , db : AsyncSession  =  Depends(get_db) , token_details : dict  = Depends(AccessTokenBearer)):
+    """Verifying email via sending the otp here """
     
-
-async def forgotPassword(db:AsyncSession =  Depends(get_db)):
-    pass
-
-async def verifyEmail( email : str , db : AsyncSession  =  Depends(get_db)):
-    pass
 
 
 
