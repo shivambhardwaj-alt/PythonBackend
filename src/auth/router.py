@@ -1,6 +1,6 @@
-from fastapi import APIRouter , Depends , status ,HTTPException
-
-from src.auth.schema import UserCreateModel , UserLogin , EmailModel , AdminCreateModel
+from fastapi import APIRouter , Depends , status ,HTTPException , Request , BackgroundTasks
+from src.utils.limiter import limiter
+from src.auth.schema import UserCreateModel , UserLogin , EmailModel , AdminCreateModel , SendOtpRequest , VerifyOTP
 from src.database.database import get_db
 from src.auth.service import UserService  
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,37 +9,17 @@ from src.auth.dependencies import RefreshTokenBearer  , AccessTokenBearer
 from datetime import timedelta , datetime
 from fastapi.responses import JSONResponse
 from src.database.redis import add_jti_to_blocklist 
+from src.auth.otp import generate_otp, store_top, can_send_otp, check_otp
 from src.utils.mail import mail , create_message
 auth_router  = APIRouter()
 me_router = APIRouter()
 user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
 
-
-
-@auth_router.post("/send_mail" , status_code= status.HTTP_200_OK)
-async def verify_user(emails : EmailModel):
-    emails  =  emails.addresses
-    html = "<h1>Welcome to the App</h1>"
-    message = create_message(
-        recipients = emails , 
-        subject  = "Welcome", 
-        body  = html, 
-        
-    )
-    await mail.send_message(message)
-    return {"message":"Email sent Successfully"}
-    
-    
-
-
 """
 sign up for the user here ..
 
 """
-
-
-
 @auth_router.post("/signup" )
 async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Depends(get_db)):
     email  = data.email 
@@ -53,9 +33,6 @@ async def create_user_account(data : UserCreateModel  , db : AsyncSession =  Dep
     access_token = generate_access_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "access")
     refresh_token = generate_refresh_token(user_data = { "email"  : data.email , "user_uid" : str(new_user.uid) ,"role" : new_user.role } , type =  "refresh")
     return JSONResponse(status_code= 201 , content = {"access_token"  : access_token , "refresh_token" : refresh_token , "user_id" : str(new_user.uid), "email" : new_user.email , "role" : new_user.role  })
-
-
-
 
 
 """"
@@ -82,13 +59,7 @@ async def create_admin_user(data : AdminCreateModel , db: AsyncSession  = Depend
     except :
         raise HTTPException(status_code= status.HTTP_500_INTERNAL_SERVER_ERROR , detail  = "Internal Sever Error.Please try again later...")
 
-
-
 """Getting the profile by email here  """
-
-
-
-
 
 @auth_router.get("/get-user")
 async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
@@ -97,11 +68,8 @@ async def get_user(email : str , db : AsyncSession =  Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND , detail  = "User not Found")
     return result
     
-    
-    
 """ Logging Route handler """
-    
-   
+
 @auth_router.post('/login')
 async def login_user(data : UserLogin , db : AsyncSession = Depends(get_db)):
     user  =  await  user_service.get_user(data.email ,db)
@@ -192,11 +160,53 @@ Route hanlder for the change password here
 async def changePassword(db : AsyncSession = Depends(get_db) , token_details  : dict  =  Depends(AccessTokenBearer)):
     return JSONResponse(content = "Changed Successfully" , status_code= status.HTTP_200_OK)
 
-
-async def verifyEmail( email : str , db : AsyncSession  =  Depends(get_db) , token_details : dict  = Depends(AccessTokenBearer)):
-    """Verifying email via sending the otp here """
+"""route & handler for sending otp """
+@auth_router.post("/send-otp")
+@limiter.limit("5/minute")
+async def sendOtp(
+    request: Request,
+    body: SendOtpRequest,
+      background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+  
+):
     
+        generic_reply = {"message" : "If this email is registered, a code has been sent"}
+        
+        user =  await user_service.get_user_by_email(body.email , db=db)
+        if user is None or user.is_verified:
+            return generic_reply 
+        if not await can_send_otp(body.email):
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS , detail = "Too many requests..")
+        otp = generate_otp() 
+        await store_top(body.email, otp)
+        messages = create_message(
+            recipients=[body.email], 
+            subject= "Your bookly Verification code", 
+            body  = f"<p>Your verification code is <b>{otp}</b>.</p><p>It expires in 10 minutes.</p>", 
+        )
+        background_tasks.add_task(mail.send_message, messages)
+        return generic_reply
+    
+    
+@auth_router.post("/verify-otp")
+@limiter.limit("10/minute")
+async def verifyOtp(request : Request , body : VerifyOTP , db:AsyncSession =  Depends(get_db)):
+    result = await check_otp(body.email, body.otp)
+    if result  == "expired":
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST , detail  =  "Code expired or not found")
+    if result  == "too many":
+        raise HTTPException(status_code =  status.HTTP_429_TOO_MANY_REQUESTS , detail = "too many Request")
+    if result == "invalid":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect code")
 
-
-
-
+    user = await user_service.get_user_by_email(body.email, db)
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Code expired or not found. Request a new one")
+    user.is_verified = True
+    db.add(user)
+    await db.commit()
+    return {"message": "Email verified"}
+    
+    
+    

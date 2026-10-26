@@ -66,3 +66,11 @@ class UserLogin(BaseModel):
 
 class EmailModel(BaseModel):
     addresses: List[EmailStr]
+class SendOtpRequest(BaseModel):
+    email : EmailStr
+class VerifyOTP(BaseModel):
+    email : EmailStr 
+    otp : str = Field(min_length =  6, max_length = 6 , pattern=r'^\d{6}$') 
+
+
+    
