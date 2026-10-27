@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select , update
 from src.database.database import get_db
 from src.auth.authmodel import UserModel
-
+from typing import Any
 
 
 
@@ -14,10 +14,11 @@ class UserProfileService:
         user = result.scalars().first()
         return user
 
-    async def update_profile(self,data : dict , email : str , db : AsyncSession):
+    async def update_profile(self,data : dict[str , Any ] , email : str , db : AsyncSession):
         statement = update(UserModel).where(UserModel.email == email).values(**data)
         await db.execute(statement)
         await db.commit()
+        return "updated successfully!"
         
         
         
