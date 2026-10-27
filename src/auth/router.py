@@ -12,7 +12,6 @@ from src.database.redis import add_jti_to_blocklist
 from src.auth.otp import generate_otp, store_top, can_send_otp, check_otp
 from src.utils.mail import mail , create_message
 auth_router  = APIRouter()
-me_router = APIRouter()
 user_service = UserService()
 REFRESH_TOKEN_EXPIRY = 1
 
@@ -151,7 +150,7 @@ async def logout(token_details   : dict = Depends(AccessTokenBearer())) :
 
 """
 
-Route hanlder for the change password here
+Route handler for the change password here
 
 """
 

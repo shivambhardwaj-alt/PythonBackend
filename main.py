@@ -6,11 +6,11 @@ from src.database.database import get_db
 from src.database.database import engine
 from sqlmodel import SQLModel
 from src.database.model import Book
-from src.auth.router import auth_router ,me_router
+from src.auth.router import auth_router 
 from src.utils.middleware import register_middleware 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-
+from src.me.router import me_router
 @asynccontextmanager
 async def life_span(app: FastAPI):
     print("Server is running ...")
@@ -54,7 +54,9 @@ async def health_check():
 
 app.include_router(bookRouter , prefix = f"/api/{version}/books" , tags=['books'])
 app.include_router(auth_router, prefix = f'/api/{version}/auth' , tags = ['auth'])
-app.include_router(me_router , prefix = f'/api/{version}/me' , tags = ['myself'])
+app.include_router(me_router , prefix = f'/api/{version}/user' , tags = ['profile of the user '])
+
+
 
 
 
