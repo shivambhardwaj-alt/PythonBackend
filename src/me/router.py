@@ -12,6 +12,10 @@ user_service = UserProfileService()
 
 me_router = APIRouter()
 
+"""
+routes for handling a user here 
+
+"""
 
 
 @me_router.get("/me")
