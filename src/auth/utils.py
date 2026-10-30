@@ -6,6 +6,8 @@ from config import Settings
 from enum import Enum
 import jwt
 import uuid
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+
 password_context = CryptContext(
     schemes=['bcrypt']
 )
@@ -50,15 +52,27 @@ def generate_access_token( user_data : dict , type : str):
 def generate_refresh_token(user_data: dict, type : str ):
     return create_token(user_data, type)
 
-def decode_access_token(token : str) :
-    try :  
+def decode_access_token(token: str):
+
+    try:
         token_data = jwt.decode(
-            jwt = token,
-            key = Config.JWT_SECRET,
-            algorithms = [Config.JWT_ALGORITHM] 
-            )
+            token,
+            Config.JWT_SECRET,
+            algorithms=[Config.JWT_ALGORITHM]
+        )
+
         return token_data
-    except jwt.PyJWTError as e :
-        raise Exception("Jwt is not working fine !!!")
+
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token has expired"
+        )
+
+    except InvalidTokenError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid access token"
+        )
 
         
