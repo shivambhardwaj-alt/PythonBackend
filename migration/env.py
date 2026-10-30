@@ -6,10 +6,12 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from src.database.model import Book
 from src.auth.authmodel import UserModel 
+from src.books.bookRating import BookRatings
 from sqlmodel import SQLModel
 from alembic import context
 from config import Config
 # this is the Alembic Config object, which provides
+print(f'Valuess for SqlMetadata is : {SQLModel.metadata.tables.keys()}' )
 # access to the values within the .ini file in use.
 database_url = Config.DATABASE_URL
 config = context.config

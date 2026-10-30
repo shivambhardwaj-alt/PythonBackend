@@ -16,5 +16,6 @@ class Book(SQLModel, table=True):
     published_date: date
     page_count: int
     language: str
+    average_rating : float = Field(default = 0.0)
     createdAt: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))
     updatedAt: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now))
